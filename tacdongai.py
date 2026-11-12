@@ -8,7 +8,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import os
 
 # ==========================================
-# 1. CẤU HÌNH TRANG & CSS TÙY CHỈNH (UI/UX ĐỈNH CAO)
+# 1. CẤU HÌNH TRANG & CSS TÙY CHỈNH
 # ==========================================
 st.set_page_config(
     page_title="AI Impact Analytics | Nhóm 8",
@@ -19,13 +19,10 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* Nền và Font chữ tổng thể */
     .stApp {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         color: #f8fafc;
     }
-    
-    /* Card hiển thị chỉ số KPI */
     .kpi-card {
         background: rgba(30, 41, 59, 0.7);
         backdrop-filter: blur(12px);
@@ -58,52 +55,6 @@ st.markdown("""
         font-size: 0.85rem;
         margin-top: 5px;
     }
-
-    /* Card bài báo & nghiên cứu khoa học */
-    .article-card {
-        background: rgba(30, 41, 59, 0.8);
-        border: 1px solid rgba(99, 102, 241, 0.25);
-        border-radius: 16px;
-        padding: 22px;
-        margin-bottom: 18px;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-    }
-    .article-card:hover {
-        transform: translateY(-4px);
-        border-color: #38bdf8;
-        box-shadow: 0 8px 30px rgba(56, 189, 248, 0.2);
-    }
-    .article-tag {
-        display: inline-block;
-        background: rgba(56, 189, 248, 0.15);
-        color: #38bdf8;
-        font-size: 0.78rem;
-        font-weight: 700;
-        padding: 4px 12px;
-        border-radius: 20px;
-        margin-bottom: 10px;
-        text-transform: uppercase;
-    }
-    .article-title {
-        font-size: 1.25rem;
-        font-weight: 700;
-        color: #f8fafc;
-        margin-bottom: 8px;
-        line-height: 1.4;
-    }
-    .article-meta {
-        font-size: 0.85rem;
-        color: #94a3b8;
-        margin-bottom: 12px;
-    }
-    .article-summary {
-        font-size: 0.95rem;
-        color: #cbd5e1;
-        line-height: 1.6;
-    }
-
-    /* Header Banner */
     .hero-banner {
         background: linear-gradient(90deg, #1e1b4b 0%, #312e81 50%, #1e3a8a 100%);
         padding: 2.2rem;
@@ -121,24 +72,6 @@ st.markdown("""
     .hero-subtitle {
         font-size: 1.1rem;
         color: #c7d2fe;
-    }
-
-    /* Nút bấm */
-    .stButton>button {
-        background: linear-gradient(90deg, #0284c7, #4f46e5);
-        color: white;
-        border: none;
-        border-radius: 12px;
-        padding: 0.75rem 2rem;
-        font-weight: 700;
-        font-size: 1rem;
-        width: 100%;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);
-    }
-    .stButton>button:hover {
-        transform: scale(1.02);
-        box-shadow: 0 6px 20px rgba(56, 189, 248, 0.6);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -238,22 +171,16 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Thanh điều hướng bên trái (Sidebar)
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/4712/4712109.png", width=80)
     st.title("Bảng Điều Khiển")
     st.markdown("---")
     menu = st.radio(
         "Chọn phân hệ chức năng:",
-        [
-            "🔮 Dự đoán GPA Cá nhân hóa",
-            "📊 Phân tích Mô hình Decision Tree",
-            "📰 Góc Nhìn Khoa Học & Bài Báo AI",
-            "🗂️ Khám phá Dữ liệu Nhóm 8"
-        ]
+        ["🔮 Dự đoán GPA Cá nhân hóa", "📊 Phân tích Mô hình Decision Tree", "🗂️ Khám phá Dữ liệu Nhóm 8"]
     )
     st.markdown("---")
-    st.info("💡 **Mẹo trình bày:** Bạn có thể thay đổi các thanh trượt ở mục Dự đoán để xem trực tiếp cách thời gian dùng AI và kỹ năng Prompt tác động đến GPA!")
+    st.info("💡 **Mẹo trình bày:** Kéo các thanh trượt để xem trực tiếp cách thời gian dùng AI và kỹ năng Prompt làm tăng hoặc giảm GPA!")
 
 # ==========================================
 # TAB 1: DỰ ĐOÁN GPA CÁ NHÂN HÓA
@@ -317,4 +244,168 @@ if menu == "🔮 Dự đoán GPA Cá nhân hóa":
 
     input_dict = {col: 0 for col in FEATURE_COLS}
     input_dict['Pre_Semester_GPA'] = pre_gpa
-    input_dict['Weekly_GenAI_Hours'] = ai
+    input_dict['Weekly_GenAI_Hours'] = ai_hours
+    input_dict['Tool_Diversity'] = tool_div
+    input_dict['Traditional_Study_Hours'] = trad_hours
+    input_dict['Year_of_Study_Encoded'] = year_val
+    input_dict['Prompt_Engineering_Skill_Encoded'] = skill_val
+    input_dict['Paid_Subscription_Encoded'] = paid_val
+    input_dict[major_map[major_label]] = 1
+    input_dict[usecase_map[usecase_label]] = 1
+
+    input_df = pd.DataFrame([input_dict])[FEATURE_COLS]
+    predicted_gpa = float(np.clip(model.predict(input_df)[0], 0.0, 4.0))
+    delta_gpa = predicted_gpa - pre_gpa
+
+    with col_result:
+        st.subheader("🎯 Kết quả Dự đoán từ Mô hình")
+        
+        fig_gauge = go.Figure(go.Indicator(
+            mode="gauge+number+delta",
+            value=predicted_gpa,
+            number={'font': {'size': 52, 'color': '#38bdf8'}, 'valueformat': '.3f'},
+            delta={'reference': pre_gpa, 'increasing': {'color': '#4ade80'}, 'decreasing': {'color': '#f87171'}, 'valueformat': '+.3f'},
+            title={'text': "GPA DỰ KIẾN SAU HỌC KỲ", 'font': {'size': 18, 'color': '#e2e8f0'}},
+            gauge={
+                'axis': {'range': [0, 4.0], 'tickwidth': 1, 'tickcolor': "#94a3b8"},
+                'bar': {'color': "#6366f1"},
+                'bgcolor': "rgba(15, 23, 42, 0.6)",
+                'borderwidth': 2,
+                'bordercolor': "#334155",
+                'steps': [
+                    {'range': [0, 2.0], 'color': 'rgba(239, 68, 68, 0.25)'},
+                    {'range': [2.0, 3.2], 'color': 'rgba(234, 179, 8, 0.25)'},
+                    {'range': [3.2, 4.0], 'color': 'rgba(34, 197, 94, 0.25)'}
+                ],
+                'threshold': {
+                    'line': {'color': "#facc15", 'width': 4},
+                    'thickness': 0.75,
+                    'value': pre_gpa
+                }
+            }
+        ))
+        fig_gauge.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            height=320,
+            margin=dict(l=20, r=20, t=50, b=20)
+        )
+        st.plotly_chart(fig_gauge, use_container_width=True)
+
+        if delta_gpa >= 0.05:
+            st.success(f"🚀 **Tín hiệu Tích cực (+{delta_gpa:.3f} GPA):** Bạn đang khai thác AI rất hiệu quả làm đòn bẩy học tập kết hợp với nền tảng tự học vững chắc!")
+        elif delta_gpa <= -0.05:
+            st.warning(f"⚠️ **Cảnh báo Suy giảm ({delta_gpa:.3f} GPA):** Mô hình nhận thấy nguy cơ giảm điểm. Hãy kiểm tra lại việc lạm dụng AI trả lời trực tiếp hoặc tăng thời gian tự học truyền thống.")
+        else:
+            st.info(f"⚖️ **Trạng thái Ổn định ({delta_gpa:+.3f} GPA):** Phong độ học tập duy trì ổn định so với học kỳ trước.")
+
+        with st.expander("🔍 Phân tích chi tiết các yếu tố tác động đến bạn", expanded=True):
+            if usecase_label == "Tạo câu trả lời trực tiếp (Direct Answer)":
+                st.write("- ❌ **Mục đích sử dụng:** Dùng AI để lấy đáp án trực tiếp thường làm giảm khả năng ghi nhớ sâu khi đi thi.")
+            else:
+                st.write("- ✅ **Mục đích sử dụng:** Dùng AI hỗ trợ tư duy/lập trình/tóm tắt giúp tối ưu hiệu suất học tập.")
+            
+            if ai_hours > 20 and trad_hours < 8:
+                st.write("- ⚠️ **Cân bằng thời gian:** Thời gian dùng AI quá cao trong khi giờ tự học truyền thống thấp dễ gây lệ thuộc.")
+            else:
+                st.write("- ✅ **Cân bằng thời gian:** Tỷ lệ phân bổ giữa tự học và dùng AI hợp lý.")
+
+# ==========================================
+# TAB 2: PHÂN TÍCH MÔ HÌNH DECISION TREE
+# ==========================================
+elif menu == "📊 Phân tích Mô hình Decision Tree":
+    st.subheader("📈 Hiệu năng Thuật toán Decision Tree trên Tập Kiểm thử (Test 20%)")
+    
+    k1, k2, k3 = st.columns(3)
+    with k1:
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-title">Độ chính xác giải thích (R² Score)</div>
+            <div class="kpi-value">{metrics['R2']*100:.2f}%</div>
+            <div class="kpi-delta" style="color: #4ade80;">Mức độ phù hợp mô hình cao</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with k2:
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-title">Sai số toàn phương trung bình (RMSE)</div>
+            <div class="kpi-value">{metrics['RMSE']:.4f}</div>
+            <div class="kpi-delta" style="color: #38bdf8;">Độ lệch chuẩn điểm GPA</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with k3:
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-title">Sai số tuyệt đối trung bình (MAE)</div>
+            <div class="kpi-value">{metrics['MAE']:.4f}</div>
+            <div class="kpi-delta" style="color: #c084fc;">Chênh lệch trung bình thực tế</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    c_left, c_right = st.columns(2, gap="large")
+
+    with c_left:
+        st.markdown("#### 🏆 Top 10 Yếu tố ảnh hưởng lớn nhất đến GPA (Feature Importance)")
+        top_fi = fi_df.head(10).sort_values(by='Độ quan trọng (%)', ascending=True)
+        fig_fi = px.bar(
+            top_fi,
+            x='Độ quan trọng (%)',
+            y='Đặc trưng',
+            orientation='h',
+            text=top_fi['Độ quan trọng (%)'].apply(lambda x: f"{x:.2f}%"),
+            color='Độ quan trọng (%)',
+            color_continuous_scale='Viridis'
+        )
+        fig_fi.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#f8fafc'),
+            showlegend=False,
+            height=420
+        )
+        st.plotly_chart(fig_fi, use_container_width=True)
+
+    with c_right:
+        st.markdown("#### 🎯 So sánh GPA Thực tế vs GPA Dự đoán (Mẫu ngẫu nhiên)")
+        sample_test = test_df.sample(min(300, len(test_df)), random_state=42).copy()
+        sample_test['GPA_Du_Doan'] = model.predict(sample_test[FEATURE_COLS])
+        
+        fig_scatter = px.scatter(
+            sample_test,
+            x='Post_Semester_GPA',
+            y='GPA_Du_Doan',
+            color='Weekly_GenAI_Hours',
+            labels={
+                'Post_Semester_GPA': 'GPA Thực tế',
+                'GPA_Du_Doan': 'GPA Mô hình Dự đoán',
+                'Weekly_GenAI_Hours': 'Giờ dùng AI/tuần'
+            },
+            color_continuous_scale='Plasma'
+        )
+        fig_scatter.add_shape(
+            type="line", x0=0, y0=0, x1=4, y1=4,
+            line=dict(color="#4ade80", width=2, dash="dash")
+        )
+        fig_scatter.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#f8fafc'),
+            height=420
+        )
+        st.plotly_chart(fig_scatter, use_container_width=True)
+
+# ==========================================
+# TAB 3: KHÁM PHÁ DỮ LIỆU NHÓM 8
+# ==========================================
+elif menu == "🗂️ Khám phá Dữ liệu Nhóm 8":
+    st.subheader("📋 Cấu trúc Dữ liệu đã Mã hóa của Nhóm 8")
+    st.write("Dữ liệu hiển thị dưới đây là tập kiểm thử (`Nhóm8_TacDongAI_test.xlsx`) đã hoàn tất tiền xử lý **Ordinal Encoding** và **One-Hot Encoding** với 18 cột số nguyên bản.")
+    
+    st.dataframe(test_df.head(20), use_container_width=True)
+    
+    st.markdown("#### 📊 Thống kê mô tả các biến định lượng chính")
+    st.dataframe(
+        test_df[['Pre_Semester_GPA', 'Weekly_GenAI_Hours', 'Tool_Diversity', 'Traditional_Study_Hours', 'Post_Semester_GPA']].describe().T,
+        use_container_width=True
+    )
