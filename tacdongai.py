@@ -544,3 +544,25 @@ elif menu == "📊 Phân tích Mô hình Decision Tree":
         fig_scatter.update_layout(
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0
+fig_scatter.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font=dict(color='#f8fafc'),
+            height=420
+        )
+        st.plotly_chart(fig_scatter, use_container_width=True)
+
+# ==========================================
+# TAB 4: KHÁM PHÁ DỮ LIỆU NHÓM 8
+# ==========================================
+elif menu == "🗂️ Khám phá Dữ liệu Nhóm 8":
+    st.subheader("📋 Cấu trúc Dữ liệu đã Mã hóa của Nhóm 8")
+    st.write("Dữ liệu hiển thị dưới đây là tập kiểm thử (`Nhóm8_TacDongAI_test.xlsx`) đã hoàn tất tiền xử lý **Ordinal Encoding** và **One-Hot Encoding** với 18 cột số nguyên bản.")
+    
+    st.dataframe(test_df.head(20), use_container_width=True)
+    
+    st.markdown("#### 📊 Thống kê mô tả các biến định lượng chính")
+    st.dataframe(
+        test_df[['Pre_Semester_GPA', 'Weekly_GenAI_Hours', 'Tool_Diversity', 'Traditional_Study_Hours', 'Post_Semester_GPA']].describe().T,
+        use_container_width=True
+    )
