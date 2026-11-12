@@ -8,7 +8,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import os
 
 # ==========================================
-# 1. CẤU HÌNH TRANG & CSS TÙY CHỈNH
+# 1. CẤU HÌNH TRANG & CSS GIAO DIỆN
 # ==========================================
 st.set_page_config(
     page_title="AI Impact Analytics | Nhóm 8",
@@ -84,7 +84,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. HÀM TẢI DỮ LIỆU & HUẤN LUYỆN MÔ HÌNH
+# 2. TẢI DỮ LIỆU & HUẤN LUYỆN DECISION TREE
 # ==========================================
 FEATURE_COLS = [
     'Pre_Semester_GPA', 'Weekly_GenAI_Hours', 'Tool_Diversity', 'Traditional_Study_Hours',
@@ -164,7 +164,7 @@ def load_and_train_models():
 model, metrics, fi_df, test_df, data_source = load_and_train_models()
 
 # ==========================================
-# 3. GIAO DIỆN CHÍNH (HERO BANNER & SIDEBAR)
+# 3. BANNER & THANH ĐIỀU HƯỚNG SIDEBAR
 # ==========================================
 st.markdown(f"""
 <div class="hero-banner">
@@ -323,13 +323,12 @@ if menu == "🔮 Dự đoán GPA Cá nhân hóa":
                 st.write("- ✅ **Cân bằng thời gian:** Tỷ lệ phân bổ giữa tự học và dùng AI hợp lý.")
 
 # ==========================================
-# TAB 2: THỰC TRẠNG & BÀI BÁO KHOA HỌC (CÓ NGUỒN ĐẦY ĐỦ)
+# TAB 2: THỰC TRẠNG & BÀI BÁO KHOA HỌC
 # ==========================================
 elif menu == "📚 Thực trạng & Bài báo Khoa học":
     st.subheader("🌍 Bức tranh Toàn cảnh: Sinh viên sử dụng AI trong Giáo dục Đại học")
     st.write("Tổng hợp các số liệu khảo sát toàn cầu và công trình nghiên cứu khoa học uy tín về tác động của Generative AI (ChatGPT, Gemini, Claude...) đến kết quả học tập (GPA) của sinh viên.")
 
-    # 4 Thẻ thống kê khảo sát quốc tế
     s1, s2, s3, s4 = st.columns(4)
     with s1:
         st.markdown("""
@@ -542,9 +541,6 @@ elif menu == "📊 Phân tích Mô hình Decision Tree":
             line=dict(color="#4ade80", width=2, dash="dash")
         )
         fig_scatter.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0
-fig_scatter.update_layout(
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
             font=dict(color='#f8fafc'),
