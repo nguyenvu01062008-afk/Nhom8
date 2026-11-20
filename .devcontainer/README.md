@@ -1,48 +1,54 @@
 # 🎓 AI Academic Impact Predictor — Nhóm 8
 
-Ứng dụng Streamlit phân tích mối liên hệ giữa thói quen dùng GenAI (ChatGPT, Gemini, Claude...) và sự thay đổi GPA của sinh viên, dùng **Decision Tree Regressor** (so sánh thêm với Hồi quy tuyến tính, Random Forest và baseline).
+Ứng dụng Streamlit phân tích mối liên hệ giữa thói quen dùng GenAI (ChatGPT, Gemini, Claude...) và sự thay đổi GPA của sinh viên, dùng **Decision Tree Regressor**, có so sánh với Hồi quy tuyến tính, Random Forest và một baseline.
 
 ## Cấu trúc repo
 
 ```
-├── app.py
+├── tacdongai.py        # file chính của app
 ├── requirements.txt
 ├── README.md
 └── data/
-    ├── train.csv      # hoặc train.xlsx (80%)
-    └── test.csv       # hoặc test.xlsx  (20%)
+    ├── train.csv       # 40.000 mẫu (80%)
+    └── test.csv        # 10.000 mẫu (20%)
 ```
 
-Ứng dụng cũng nhận tên file cũ `Nhóm8_TacDongAI_train.xlsx` / `Nhóm8_TacDongAI_test.xlsx`.
-Nếu không tìm thấy file, app chạy ở **chế độ DEMO** với dữ liệu giả lập và hiển thị cảnh báo đỏ.
+Nếu thiếu file trong `data/`, app chạy ở **chế độ DEMO** với dữ liệu giả lập và hiện cảnh báo đỏ ở sidebar. Khi chạy đúng, sidebar hiện ô xanh "Đang dùng dữ liệu thật" và banner ghi 40.000 train / 10.000 test.
 
 ## Chạy trên máy
 
 ```bash
 pip install -r requirements.txt
-streamlit run app.py
+streamlit run tacdongai.py
 ```
 
 ## Triển khai miễn phí
 
-Đẩy repo lên GitHub → vào [share.streamlit.io](https://share.streamlit.io) → chọn repo, file chính `app.py`.
+Đẩy repo lên GitHub → vào [share.streamlit.io](https://share.streamlit.io) → chọn repo, Main file path: `tacdongai.py`.
 
 ## Dữ liệu
 
-- Nguồn: bộ dữ liệu *AI Impact on Students* trên Kaggle (~50.000 sinh viên). **Điền link Kaggle vào biến `DATASET_URL` trong `app.py` và ghi rõ tên tác giả/giấy phép.**
-- `Pre_Semester_GPA` / `Post_Semester_GPA`: GPA tổng của sinh viên trước/sau học kỳ, thang 4.0. Không có điểm theo từng môn.
-- Đầu vào mô hình: 7 biến số/ordinal + 5 cột one-hot ngành học + 5 cột one-hot mục đích dùng AI = 17 đặc trưng.
-- Các cột như mức phụ thuộc AI, lo âu khi thi, điểm giữ kỹ năng, nguy cơ kiệt sức **không** được đưa vào mô hình vì nhiều khả năng là kết quả, không phải đầu vào (tránh rò rỉ thông tin).
-- Phần nguồn gốc địa lý (Melbourne, Úc) và cách thu thập dữ liệu cần được đối chiếu với mô tả của tác giả trên Kaggle; sửa `DATASET_ORIGIN_NOTE` cho khớp.
+- Nguồn: bộ dữ liệu *AI Impact on Students* trên Kaggle, 50.000 sinh viên. **Điền link Kaggle vào `DATASET_URL` trong `tacdongai.py`, ghi rõ tác giả và giấy phép.**
+- `Pre_Semester_GPA` / `Post_Semester_GPA`: GPA tổng của mỗi sinh viên trước / sau học kỳ, thang 4.0. Không có điểm theo từng môn.
+- Tiền xử lý: Ordinal Encoding cho năm học (1 = Freshman … 5 = Graduate) và kỹ năng prompt (1 = Beginner … 3 = Advanced); One-Hot Encoding cho ngành học và mục đích dùng AI. Tổng cộng 17 đặc trưng đầu vào.
+- Dữ liệu không thiếu giá trị; mỗi sinh viên có đúng một ngành và một mục đích dùng AI chính.
+- Các cột khác của bộ gốc (mức phụ thuộc AI, lo âu khi thi, điểm giữ kỹ năng, nguy cơ kiệt sức) không đưa vào mô hình vì nhiều khả năng là kết quả, không phải đầu vào.
+- Nguồn gốc địa lý (Melbourne, Úc) và cách thu thập dữ liệu chưa xác minh được từ nguồn công khai. Hãy đối chiếu với phần mô tả của tác giả trên Kaggle và sửa `DATASET_ORIGIN_NOTE` cho khớp.
 
-## Những điểm đã cải tiến so với bản đầu
+## Kết quả trên tập test (max_depth = 10, chọn bằng cross-validation trên tập train)
 
-- Không còn nhãn "dữ liệu thực tế" khi đang chạy dữ liệu giả lập.
-- Thêm baseline "GPA sau = GPA trước" và chỉ số **R² của mức thay đổi GPA**, vì R² thông thường bị GPA cũ chi phối.
-- Thêm so sánh mô hình, biểu đồ chọn `max_depth` (train vs test), cảnh báo khi nhập giá trị ngoài vùng dữ liệu, biểu đồ "nếu đổi số giờ AI".
-- Tab *Về dữ liệu & cách tính GPA* (từ điển dữ liệu, giải thích GPA, hạn chế).
-- Sửa trích dẫn: thay các số liệu không kiểm chứng được bằng số liệu tính từ dữ liệu; sửa tiêu đề bài báo.
+| Mô hình | R² (GPA sau) | RMSE | R² (mức thay đổi GPA) |
+|---|---|---|---|
+| Baseline: GPA sau = GPA trước | 0.682 | 0.277 | −1.231 |
+| Hồi quy tuyến tính | 0.897 | 0.157 | 0.280 |
+| **Decision Tree** | 0.889 | 0.164 | 0.220 |
+| Random Forest | 0.903 | 0.153 | 0.319 |
+
+Diễn giải: GPA trước học kỳ chiếm khoảng 95% độ quan trọng đặc trưng của cây; giờ dùng AI chỉ khoảng 0.7%. Decision Tree không phải mô hình tốt nhất ở đây (quan hệ gần tuyến tính), nhưng được giữ làm mô hình chính vì dễ diễn giải.
 
 ## Hạn chế
 
-Dữ liệu quan sát nên không kết luận được quan hệ nhân quả. Kết quả chưa được kiểm chứng trên sinh viên Việt Nam.
+- Dữ liệu quan sát, không có nhóm đối chứng: không kết luận được AI *gây ra* thay đổi GPA.
+- Hiệu ứng trần: khoảng 9.6% sinh viên có GPA sau học kỳ đạt tối đa 4.0.
+- Chưa kiểm chứng trên sinh viên Việt Nam.
+- Các số liệu và trích dẫn ở tab *Bối cảnh & tài liệu tham khảo* nhập tay, cần đối chiếu với nguồn gốc trước khi nộp.
