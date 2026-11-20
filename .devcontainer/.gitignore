@@ -1,6 +1,6 @@
-__pycache__/
-*.pyc
-.venv/
-venv/
-.streamlit/secrets.toml
-.DS_Store
+[theme]
+base = "light"
+primaryColor = "#4f46e5"
+backgroundColor = "#f8fafc"
+secondaryBackgroundColor = "#eef2f7"
+textColor = "#0f172a"
