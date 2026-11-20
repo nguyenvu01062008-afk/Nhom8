@@ -152,7 +152,7 @@ def _make_demo_data(n: int = 5000) -> tuple[pd.DataFrame, pd.DataFrame]:
         - 0.012 * np.maximum(0, df["Weekly_GenAI_Hours"] - 15)
         - 0.15 * df["UseCase_Direct_Answer_Generation"]
         + 0.06 * df["UseCase_Ideation"]
-        - 0.25
+        - 0.07
         + rng.normal(0, 0.12, n)
     )
     df[TARGET_COL] = np.clip(np.round(df["Pre_Semester_GPA"] + delta, 3), 0.0, 4.0)
@@ -248,8 +248,8 @@ with st.sidebar:
         ],
     )
     st.markdown("---")
-    max_depth = st.slider("Độ sâu tối đa của cây (max_depth)", 3, 15, 8)
-    st.caption("Cây sâu hơn khớp train tốt hơn nhưng dễ overfit — xem biểu đồ ở mục *Đánh giá mô hình*.")
+    max_depth = st.slider("Độ sâu tối đa của cây (max_depth)", 3, 15, 10)
+    st.caption("Mặc định 10: giá trị cho RMSE thấp nhất khi cross-validation 5-fold trên tập train (không dùng tập test để chọn). Cây sâu hơn dễ overfit — xem biểu đồ ở mục *Đánh giá mô hình*.")
     st.markdown("---")
     if data_kind == "real":
         st.success(f"Đang dùng dữ liệu thật\n\n`{data_file}`")
@@ -289,7 +289,7 @@ if menu.startswith("🔮"):
         with c1:
             pre_gpa = st.slider("GPA trước học kỳ (thang 4.0)", 0.0, 4.0, 3.20, 0.05)
             ai_hours = st.slider("Giờ dùng GenAI / tuần", 0.0, 40.0, 8.5, 0.5)
-            trad_hours = st.slider("Giờ tự học truyền thống / tuần", 0.0, 35.0, 14.0, 0.5)
+            trad_hours = st.slider("Giờ tự học truyền thống / tuần", 0.0, 36.0, 11.0, 0.5)
         with c2:
             tool_div = st.slider("Số loại công cụ AI đang dùng (1–5)", 1, 5, 3)
             year_map = {
@@ -420,7 +420,11 @@ elif menu.startswith("📖"):
 
     st.markdown("#### 1. Nguồn dữ liệu")
     link = f" ([trang Kaggle]({DATASET_URL}))" if DATASET_URL else ""
-    st.write(f"Bộ dữ liệu **{DATASET_NAME}**{link}, được nhóm tải về từ Kaggle và chia 80% train / 20% test.")
+    st.write(
+        f"Bộ dữ liệu **{DATASET_NAME}**{link}, được nhóm tải về từ Kaggle (50.000 sinh viên), "
+        f"tiền xử lý (Ordinal Encoding cho năm học và kỹ năng prompt, One-Hot Encoding cho ngành học và mục đích dùng AI) "
+        f"rồi chia 80% train ({len(train_df):,}) / 20% test ({len(test_df):,})."
+    )
     st.info(DATASET_ORIGIN_NOTE)
     st.warning(
         "Cần lưu ý: nếu tác giả không công bố phương pháp thu thập, hoặc bộ dữ liệu có dấu hiệu được tổng hợp, "
@@ -488,6 +492,17 @@ elif menu.startswith("📊"):
         "Vì vậy R² của GPA sau dễ gây hiểu nhầm là rất cao; chỉ số **R² của mức thay đổi GPA** mới phản ánh "
         "mô hình học được gì ngoài GPA cũ."
     )
+
+    candidates = results_df.iloc[1:]
+    best = candidates.loc[candidates["RMSE"].idxmin()]
+    if best["Mô hình"].startswith("Decision Tree"):
+        st.success("Decision Tree có RMSE thấp nhất trong các mô hình được so sánh.")
+    else:
+        st.info(
+            f"Trên tập test, **{best['Mô hình']}** có RMSE thấp nhất ({best['RMSE']:.3f}) so với Decision Tree "
+            f"({dt_row['RMSE']:.3f}). Điều này cho thấy quan hệ trong dữ liệu gần tuyến tính. "
+            "Decision Tree vẫn là mô hình chính của đề tài vì dễ diễn giải (đường đi quyết định, độ quan trọng đặc trưng)."
+        )
 
     st.markdown("#### So sánh mô hình")
     st.dataframe(
@@ -561,6 +576,28 @@ elif menu.startswith("🗂️"):
                        labels={"GPA_Change": "Thay đổi GPA TB", "UseCase": ""})
         st.plotly_chart(style_fig(fig_u, 360), use_container_width=True)
     st.caption("Chênh lệch trung bình giữa các nhóm chưa kiểm soát các yếu tố khác (GPA nền, giờ tự học...), không nên đọc là nhân quả.")
+
+    a2, b2 = st.columns(2, gap="large")
+    with a2:
+        st.markdown("#### Thay đổi GPA trung bình theo giờ tự học truyền thống / tuần")
+        tb_bins = [-0.01, 5, 10, 15, 20, 1000]
+        tb_labels = ["0–5", "5–10", "10–15", "15–20", ">20"]
+        grp3 = (
+            full.assign(Nhom=pd.cut(full["Traditional_Study_Hours"], bins=tb_bins, labels=tb_labels))
+            .groupby("Nhom", observed=True)["GPA_Change"].agg(["mean", "size"]).reset_index()
+        )
+        fig_t = px.bar(grp3, x="Nhom", y="mean", text=grp3["size"].map(lambda n: f"n={n:,}"),
+                       labels={"Nhom": "Giờ tự học/tuần", "mean": "Thay đổi GPA TB"})
+        st.plotly_chart(style_fig(fig_t, 340), use_container_width=True)
+    with b2:
+        st.markdown("#### Lưu ý khi đọc dữ liệu")
+        ceiling = (full[TARGET_COL] >= 4.0).mean() * 100
+        st.warning(
+            f"- **Hiệu ứng trần:** {ceiling:.1f}% sinh viên có GPA sau học kỳ chạm mức tối đa 4.0, "
+            "nên sinh viên GPA cao khó tăng thêm và mô hình có xu hướng dự đoán thấp cho nhóm này.\n"
+            f"- GPA trung bình tăng {full['GPA_Change'].mean():+.2f} ở toàn mẫu, kể cả nhóm dùng AI ít. "
+            "Vì không có nhóm đối chứng, không thể tách phần tăng do AI khỏi các yếu tố khác."
+        )
 
     st.markdown("#### Ma trận tương quan (biến số)")
     corr = full[NUMERIC_FEATURES + [TARGET_COL, "GPA_Change"]].corr()
