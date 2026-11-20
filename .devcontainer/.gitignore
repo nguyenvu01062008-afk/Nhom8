@@ -1,6 +1,4 @@
 [theme]
-base = "light"
-primaryColor = "#4f46e5"
-backgroundColor = "#f8fafc"
-secondaryBackgroundColor = "#eef2f7"
-textColor = "#0f172a"
+# Không đặt base/backgroundColor/textColor: app tự theo chế độ sáng/tối của
+# máy hoặc của menu Settings trong Streamlit.
+primaryColor = "#6366f1"
