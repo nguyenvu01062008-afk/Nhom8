@@ -59,6 +59,16 @@ USECASE_COLS = [
 FEATURE_COLS = NUMERIC_FEATURES + MAJOR_COLS + USECASE_COLS
 TARGET_COL = "Post_Semester_GPA"
 
+# Bảng màu giao diện sáng
+C_TEXT = "#0f172a"
+C_MUTED = "#475569"
+C_PRIMARY = "#0369a1"
+C_ACCENT = "#4f46e5"
+C_GOOD = "#15803d"
+C_BAD = "#b91c1c"
+C_PURPLE = "#7e22ce"
+C_WARN = "#d97706"
+
 st.set_page_config(
     page_title="AI Impact Analytics | Nhóm 8",
     page_icon="🎓",
@@ -67,41 +77,43 @@ st.set_page_config(
 )
 
 st.markdown(
-    """
+    f"""
 <style>
-    .stApp { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #f8fafc; }
-    .kpi-card {
-        background: rgba(30, 41, 59, 0.75); backdrop-filter: blur(12px);
-        border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 16px;
-        padding: 18px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    .stApp {{ background: #f8fafc; color: {C_TEXT}; }}
+    [data-testid="stSidebar"] {{ background: #eef2f7; }}
+    .kpi-card {{
+        background: #ffffff;
+        border: 1px solid #cbd5e1; border-radius: 16px;
+        padding: 18px; text-align: center; box-shadow: 0 4px 16px rgba(15,23,42,0.08);
         transition: transform .3s ease; height: 100%;
-    }
-    .kpi-card:hover { transform: translateY(-4px); border-color: #38bdf8; }
-    .kpi-title { font-size: .8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-    .kpi-value {
+    }}
+    .kpi-card:hover {{ transform: translateY(-4px); border-color: {C_PRIMARY}; }}
+    .kpi-title {{ font-size: .8rem; color: {C_MUTED}; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }}
+    .kpi-value {{
         font-size: 2rem; font-weight: 800;
-        background: linear-gradient(90deg, #38bdf8, #818cf8);
+        background: linear-gradient(90deg, {C_PRIMARY}, {C_ACCENT});
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
-    .kpi-note { font-size: .8rem; margin-top: 5px; }
-    .hero-banner {
-        background: linear-gradient(90deg, #1e1b4b 0%, #312e81 50%, #1e3a8a 100%);
-        padding: 1.6rem 2rem; border-radius: 20px; border: 1px solid rgba(99,102,241,.4);
-        margin-bottom: 1.4rem; box-shadow: 0 10px 30px rgba(0,0,0,.4);
-    }
-    .hero-title { font-size: 2rem; font-weight: 800; color: #fff; margin-bottom: .3rem; }
-    .hero-subtitle { font-size: 1rem; color: #c7d2fe; }
-    .paper-card {
-        background: rgba(15,23,42,.8); border-left: 4px solid #38bdf8;
+    }}
+    .kpi-note {{ font-size: .8rem; margin-top: 5px; }}
+    .hero-banner {{
+        background: linear-gradient(90deg, #4338ca 0%, #4f46e5 50%, #0369a1 100%);
+        padding: 1.6rem 2rem; border-radius: 20px;
+        margin-bottom: 1.4rem; box-shadow: 0 6px 20px rgba(67,56,202,.25);
+    }}
+    .hero-title {{ font-size: 2rem; font-weight: 800; color: #ffffff; margin-bottom: .3rem; }}
+    .hero-subtitle {{ font-size: 1rem; color: #e0e7ff; }}
+    .paper-card {{
+        background: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid {C_PRIMARY};
         padding: 16px 20px; border-radius: 10px; margin-bottom: 14px;
-    }
+        box-shadow: 0 2px 8px rgba(15,23,42,.05);
+    }}
 </style>
 """,
     unsafe_allow_html=True,
 )
 
 
-def kpi(title: str, value: str, note: str = "", color: str = "#38bdf8") -> str:
+def kpi(title: str, value: str, note: str = "", color: str = C_PRIMARY) -> str:
     return (
         f'<div class="kpi-card"><div class="kpi-title">{title}</div>'
         f'<div class="kpi-value">{value}</div>'
@@ -111,9 +123,10 @@ def kpi(title: str, value: str, note: str = "", color: str = "#38bdf8") -> str:
 
 def style_fig(fig: go.Figure, height: int = 400) -> go.Figure:
     fig.update_layout(
+        template="plotly_white",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#f8fafc"),
+        font=dict(color=C_TEXT),
         height=height,
     )
     return fig
@@ -250,14 +263,10 @@ with st.sidebar:
     st.markdown("---")
     max_depth = st.slider("Độ sâu tối đa của cây (max_depth)", 3, 15, 10)
     st.caption("Mặc định 10: giá trị cho RMSE thấp nhất khi cross-validation 5-fold trên tập train (không dùng tập test để chọn). Cây sâu hơn dễ overfit — xem biểu đồ ở mục *Đánh giá mô hình*.")
-    st.markdown("---")
-    if data_kind == "real":
-        st.success(f"Đang dùng dữ liệu thật\n\n`{data_file}`")
-    else:
-        st.error("Đang dùng DỮ LIỆU GIẢ LẬP. Kết quả KHÔNG có giá trị nghiên cứu.")
 
 dt_model, rf_model, results_df, depth_df, fi_df = train_models(train_df, test_df, max_depth)
 
+# Banner chỉ hiện chữ "demo" khi thật sự không có file dữ liệu, để tránh hiểu nhầm.
 banner_src = (
     f"Dữ liệu: <b>{DATASET_NAME}</b> — {len(train_df):,} mẫu train / {len(test_df):,} mẫu test"
     if data_kind == "real"
@@ -268,7 +277,7 @@ st.markdown(
 <div class="hero-banner">
   <div class="hero-title">🎓 AI ACADEMIC IMPACT PREDICTOR — NHÓM 8</div>
   <div class="hero-subtitle">Phân tích mối liên hệ giữa thói quen dùng GenAI và sự thay đổi GPA của sinh viên bằng <b>Decision Tree Regressor</b></div>
-  <div style="margin-top:8px;font-size:.85rem;color:#93c5fd;">📂 {banner_src}</div>
+  <div style="margin-top:8px;font-size:.85rem;color:#bfdbfe;">📂 {banner_src}</div>
 </div>
 """,
     unsafe_allow_html=True,
@@ -345,26 +354,26 @@ if menu.startswith("🔮"):
             go.Indicator(
                 mode="gauge+number+delta",
                 value=pred,
-                number={"font": {"size": 50, "color": "#38bdf8"}, "valueformat": ".2f"},
+                number={"font": {"size": 50, "color": C_PRIMARY}, "valueformat": ".2f"},
                 delta={"reference": pre_gpa, "valueformat": "+.2f",
-                       "increasing": {"color": "#4ade80"}, "decreasing": {"color": "#f87171"}},
-                title={"text": "GPA DỰ KIẾN SAU HỌC KỲ", "font": {"size": 16, "color": "#e2e8f0"}},
+                       "increasing": {"color": "#16a34a"}, "decreasing": {"color": "#dc2626"}},
+                title={"text": "GPA DỰ KIẾN SAU HỌC KỲ", "font": {"size": 16, "color": C_TEXT}},
                 gauge={
                     "axis": {"range": [0, 4.0]},
-                    "bar": {"color": "#6366f1"},
+                    "bar": {"color": C_ACCENT},
                     "steps": [
                         {"range": [0, 2.0], "color": "rgba(239,68,68,.25)"},
-                        {"range": [2.0, 3.2], "color": "rgba(234,179,8,.25)"},
-                        {"range": [3.2, 4.0], "color": "rgba(34,197,94,.25)"},
+                        {"range": [2.0, 3.2], "color": "rgba(234,179,8,.30)"},
+                        {"range": [3.2, 4.0], "color": "rgba(34,197,94,.28)"},
                     ],
-                    "threshold": {"line": {"color": "#facc15", "width": 4}, "thickness": 0.75, "value": pre_gpa},
+                    "threshold": {"line": {"color": C_WARN, "width": 4}, "thickness": 0.75, "value": pre_gpa},
                 },
             )
         )
         style_fig(fig, 300).update_layout(margin=dict(l=20, r=20, t=50, b=10))
         st.plotly_chart(fig, use_container_width=True)
         st.caption(
-            f"Vạch vàng = GPA trước học kỳ. Sai số điển hình của mô hình trên tập test: ±{rmse:.2f} GPA (RMSE). "
+            f"Vạch cam = GPA trước học kỳ. Sai số điển hình của mô hình trên tập test: ±{rmse:.2f} GPA (RMSE). "
             f"Random Forest dự đoán {pred_rf:.2f} để đối chiếu."
         )
 
@@ -408,7 +417,7 @@ if menu.startswith("🔮"):
         }
     ).melt("Giờ dùng AI / tuần", var_name="Mô hình", value_name="Thay đổi GPA dự đoán")
     fig_c = px.line(curve, x="Giờ dùng AI / tuần", y="Thay đổi GPA dự đoán", color="Mô hình")
-    fig_c.add_vline(x=ai_hours, line_dash="dash", line_color="#facc15")
+    fig_c.add_vline(x=ai_hours, line_dash="dash", line_color=C_WARN)
     st.plotly_chart(style_fig(fig_c, 330), use_container_width=True)
     st.caption("Cây quyết định cho đường bậc thang; Random Forest mượt hơn. Đây là mối liên hệ mô hình học được, chưa phải bằng chứng nhân quả.")
 
@@ -481,10 +490,10 @@ elif menu.startswith("📊"):
 
     k1, k2, k3, k4 = st.columns(4)
     k1.markdown(kpi("R² (GPA sau)", f"{dt_row['R² (GPA sau)']*100:.1f}%", "Decision Tree"), unsafe_allow_html=True)
-    k2.markdown(kpi("RMSE", f"{dt_row['RMSE']:.3f}", "Sai số bình phương TB (điểm GPA)", "#38bdf8"), unsafe_allow_html=True)
-    k3.markdown(kpi("MAE", f"{dt_row['MAE']:.3f}", "Sai số tuyệt đối TB (điểm GPA)", "#c084fc"), unsafe_allow_html=True)
+    k2.markdown(kpi("RMSE", f"{dt_row['RMSE']:.3f}", "Sai số bình phương TB (điểm GPA)", C_PRIMARY), unsafe_allow_html=True)
+    k3.markdown(kpi("MAE", f"{dt_row['MAE']:.3f}", "Sai số tuyệt đối TB (điểm GPA)", C_PURPLE), unsafe_allow_html=True)
     k4.markdown(
-        kpi("R² (mức thay đổi GPA)", f"{dt_row['R² (mức thay đổi GPA)']*100:.1f}%", "Phần biến thiên của (Post − Pre) mà mô hình giải thích", "#4ade80"),
+        kpi("R² (mức thay đổi GPA)", f"{dt_row['R² (mức thay đổi GPA)']*100:.1f}%", "Phần biến thiên của (Post − Pre) mà mô hình giải thích", C_GOOD),
         unsafe_allow_html=True,
     )
     st.info(
@@ -529,7 +538,7 @@ elif menu.startswith("📊"):
             labels={TARGET_COL: "GPA thực tế", "Weekly_GenAI_Hours": "Giờ AI/tuần"},
             color_continuous_scale="Plasma",
         )
-        fig_sc.add_shape(type="line", x0=0, y0=0, x1=4, y1=4, line=dict(color="#4ade80", dash="dash"))
+        fig_sc.add_shape(type="line", x0=0, y0=0, x1=4, y1=4, line=dict(color="#16a34a", dash="dash"))
         st.plotly_chart(style_fig(fig_sc, 420), use_container_width=True)
 
     st.markdown("#### Chọn độ sâu cây: Train vs Test RMSE")
@@ -537,7 +546,7 @@ elif menu.startswith("📊"):
         depth_df.melt("max_depth", var_name="Tập", value_name="RMSE"),
         x="max_depth", y="RMSE", color="Tập", markers=True,
     )
-    fig_d.add_vline(x=max_depth, line_dash="dash", line_color="#facc15")
+    fig_d.add_vline(x=max_depth, line_dash="dash", line_color=C_WARN)
     st.plotly_chart(style_fig(fig_d, 340), use_container_width=True)
     st.caption("Khi Train RMSE tiếp tục giảm nhưng Test RMSE không giảm (hoặc tăng), cây đang bị overfit.")
 
@@ -551,9 +560,9 @@ elif menu.startswith("🗂️"):
 
     m1, m2, m3, m4 = st.columns(4)
     m1.markdown(kpi("Số mẫu", f"{len(full):,}", f"{len(train_df):,} train / {len(test_df):,} test"), unsafe_allow_html=True)
-    m2.markdown(kpi("GPA TB trước", f"{full['Pre_Semester_GPA'].mean():.2f}", "", "#c084fc"), unsafe_allow_html=True)
-    m3.markdown(kpi("GPA TB sau", f"{full[TARGET_COL].mean():.2f}", "", "#4ade80"), unsafe_allow_html=True)
-    m4.markdown(kpi("Thay đổi TB", f"{full['GPA_Change'].mean():+.3f}", "Post − Pre", "#f87171"), unsafe_allow_html=True)
+    m2.markdown(kpi("GPA TB trước", f"{full['Pre_Semester_GPA'].mean():.2f}", "", C_PURPLE), unsafe_allow_html=True)
+    m3.markdown(kpi("GPA TB sau", f"{full[TARGET_COL].mean():.2f}", "", C_GOOD), unsafe_allow_html=True)
+    m4.markdown(kpi("Thay đổi TB", f"{full['GPA_Change'].mean():+.3f}", "Post − Pre", C_BAD), unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
     a, b = st.columns(2, gap="large")
@@ -625,10 +634,10 @@ else:
 
     c1, c2, c3 = st.columns(3)
     c1.markdown(kpi("SV từng dùng GenAI", "86%", "Digital Education Council, 2024 (3.839 SV, 16 nước)"), unsafe_allow_html=True)
-    c2.markdown(kpi("Dùng AI hàng tuần", "54%", "Digital Education Council, 2024", "#4ade80"), unsafe_allow_html=True)
+    c2.markdown(kpi("Dùng AI hàng tuần", "54%", "Digital Education Council, 2024", C_GOOD), unsafe_allow_html=True)
     c3.markdown(
         kpi("Giờ AI TB / tuần (dữ liệu Nhóm 8)",
-            f"{pd.concat([train_df, test_df])['Weekly_GenAI_Hours'].mean():.1f}", "Tính từ bộ dữ liệu Kaggle", "#c084fc"),
+            f"{pd.concat([train_df, test_df])['Weekly_GenAI_Hours'].mean():.1f}", "Tính từ bộ dữ liệu Kaggle", C_PURPLE),
         unsafe_allow_html=True,
     )
 
@@ -681,10 +690,10 @@ else:
         st.markdown(
             f"""
 <div class="paper-card">
-  <div style="font-size:1.05rem;font-weight:700;color:#38bdf8;">{i}. {p['title']}</div>
-  <div style="font-size:.88rem;color:#94a3b8;margin:4px 0;"><b>Tác giả:</b> {p['authors']} | <i>{p['journal']}</i></div>
-  <div style="font-size:.92rem;color:#e2e8f0;margin-top:6px;">{p['summary']}</div>
-  <div style="margin-top:8px;font-size:.85rem;">🔗 <a href="{p['link']}" target="_blank" style="color:#818cf8;">{p['link']}</a></div>
+  <div style="font-size:1.05rem;font-weight:700;color:{C_PRIMARY};">{i}. {p['title']}</div>
+  <div style="font-size:.88rem;color:{C_MUTED};margin:4px 0;"><b>Tác giả:</b> {p['authors']} | <i>{p['journal']}</i></div>
+  <div style="font-size:.92rem;color:#1e293b;margin-top:6px;">{p['summary']}</div>
+  <div style="margin-top:8px;font-size:.85rem;">🔗 <a href="{p['link']}" target="_blank" style="color:{C_ACCENT};">{p['link']}</a></div>
 </div>
 """,
             unsafe_allow_html=True,
