@@ -60,14 +60,14 @@ FEATURE_COLS = NUMERIC_FEATURES + MAJOR_COLS + USECASE_COLS
 TARGET_COL = "Post_Semester_GPA"
 
 # Bảng màu giao diện sáng
-C_TEXT = "#0f172a"
-C_MUTED = "#475569"
-C_PRIMARY = "#0369a1"
-C_ACCENT = "#4f46e5"
-C_GOOD = "#15803d"
-C_BAD = "#b91c1c"
-C_PURPLE = "#7e22ce"
-C_WARN = "#d97706"
+# Màu trung tính (tông vừa) để đọc được trên CẢ nền sáng lẫn nền tối.
+# Màu nền và màu chữ chính KHÔNG đặt cứng: để Streamlit tự theo theme sáng/tối.
+C_PRIMARY = "#0ea5e9"
+C_ACCENT = "#6366f1"
+C_GOOD = "#22c55e"
+C_BAD = "#ef4444"
+C_PURPLE = "#a855f7"
+C_WARN = "#f59e0b"
 
 st.set_page_config(
     page_title="AI Impact Analytics | Nhóm 8",
@@ -79,16 +79,15 @@ st.set_page_config(
 st.markdown(
     f"""
 <style>
-    .stApp {{ background: #f8fafc; color: {C_TEXT}; }}
-    [data-testid="stSidebar"] {{ background: #eef2f7; }}
+    /* Không đặt nền/màu chữ cho .stApp và sidebar: theme sáng/tối của Streamlit tự xử lý. */
     .kpi-card {{
-        background: #ffffff;
-        border: 1px solid #cbd5e1; border-radius: 16px;
-        padding: 18px; text-align: center; box-shadow: 0 4px 16px rgba(15,23,42,0.08);
+        background: rgba(128, 128, 128, 0.10);
+        border: 1px solid rgba(128, 128, 128, 0.35); border-radius: 16px;
+        padding: 18px; text-align: center; box-shadow: 0 4px 16px rgba(0,0,0,0.10);
         transition: transform .3s ease; height: 100%;
     }}
     .kpi-card:hover {{ transform: translateY(-4px); border-color: {C_PRIMARY}; }}
-    .kpi-title {{ font-size: .8rem; color: {C_MUTED}; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }}
+    .kpi-title {{ font-size: .8rem; opacity: .75; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }}
     .kpi-value {{
         font-size: 2rem; font-weight: 800;
         background: linear-gradient(90deg, {C_PRIMARY}, {C_ACCENT});
@@ -103,9 +102,9 @@ st.markdown(
     .hero-title {{ font-size: 2rem; font-weight: 800; color: #ffffff; margin-bottom: .3rem; }}
     .hero-subtitle {{ font-size: 1rem; color: #e0e7ff; }}
     .paper-card {{
-        background: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid {C_PRIMARY};
+        background: rgba(128, 128, 128, 0.10); border: 1px solid rgba(128, 128, 128, 0.30);
+        border-left: 4px solid {C_PRIMARY};
         padding: 16px 20px; border-radius: 10px; margin-bottom: 14px;
-        box-shadow: 0 2px 8px rgba(15,23,42,.05);
     }}
 </style>
 """,
@@ -122,11 +121,10 @@ def kpi(title: str, value: str, note: str = "", color: str = C_PRIMARY) -> str:
 
 
 def style_fig(fig: go.Figure, height: int = 400) -> go.Figure:
+    # Không ép template/màu chữ: st.plotly_chart (theme="streamlit") tự đổi sáng/tối theo app.
     fig.update_layout(
-        template="plotly_white",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color=C_TEXT),
         height=height,
     )
     return fig
@@ -357,7 +355,7 @@ if menu.startswith("🔮"):
                 number={"font": {"size": 50, "color": C_PRIMARY}, "valueformat": ".2f"},
                 delta={"reference": pre_gpa, "valueformat": "+.2f",
                        "increasing": {"color": "#16a34a"}, "decreasing": {"color": "#dc2626"}},
-                title={"text": "GPA DỰ KIẾN SAU HỌC KỲ", "font": {"size": 16, "color": C_TEXT}},
+                title={"text": "GPA DỰ KIẾN SAU HỌC KỲ", "font": {"size": 16}},
                 gauge={
                     "axis": {"range": [0, 4.0]},
                     "bar": {"color": C_ACCENT},
@@ -691,8 +689,8 @@ else:
             f"""
 <div class="paper-card">
   <div style="font-size:1.05rem;font-weight:700;color:{C_PRIMARY};">{i}. {p['title']}</div>
-  <div style="font-size:.88rem;color:{C_MUTED};margin:4px 0;"><b>Tác giả:</b> {p['authors']} | <i>{p['journal']}</i></div>
-  <div style="font-size:.92rem;color:#1e293b;margin-top:6px;">{p['summary']}</div>
+  <div style="font-size:.88rem;opacity:.75;margin:4px 0;"><b>Tác giả:</b> {p['authors']} | <i>{p['journal']}</i></div>
+  <div style="font-size:.92rem;margin-top:6px;">{p['summary']}</div>
   <div style="margin-top:8px;font-size:.85rem;">🔗 <a href="{p['link']}" target="_blank" style="color:{C_ACCENT};">{p['link']}</a></div>
 </div>
 """,
