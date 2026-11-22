@@ -427,11 +427,18 @@ elif menu.startswith("📖"):
 
     st.markdown("#### 1. Nguồn dữ liệu")
     link = f" ([trang Kaggle]({DATASET_URL}))" if DATASET_URL else ""
-    st.write(
-        f"Bộ dữ liệu **{DATASET_NAME}**{link}, được nhóm tải về từ Kaggle (50.000 sinh viên), "
-        f"tiền xử lý (Ordinal Encoding cho năm học và kỹ năng prompt, One-Hot Encoding cho ngành học và mục đích dùng AI) "
-        f"rồi chia 80% train ({len(train_df):,}) / 20% test ({len(test_df):,})."
-    )
+    n_total = len(train_df) + len(test_df)
+    if data_kind == "real":
+        st.write(
+            f"Bộ dữ liệu **{DATASET_NAME}**{link}, được nhóm tải về từ Kaggle ({n_total:,} sinh viên), "
+            f"tiền xử lý (Ordinal Encoding cho năm học và kỹ năng prompt, One-Hot Encoding cho ngành học và mục đích dùng AI) "
+            f"rồi chia {len(train_df) / n_total:.0%} train ({len(train_df):,}) / {len(test_df) / n_total:.0%} test ({len(test_df):,})."
+        )
+    else:
+        st.error(
+            f"Web đang chạy bằng **dữ liệu giả lập** ({len(train_df):,} train / {len(test_df):,} test) vì chưa tìm thấy "
+            "file dữ liệu thật. Hãy đặt `train.csv` và `test.csv` vào thư mục `data/` của repo GitHub."
+        )
     st.info(DATASET_ORIGIN_NOTE)
     st.warning(
         "Cần lưu ý: nếu tác giả không công bố phương pháp thu thập, hoặc bộ dữ liệu có dấu hiệu được tổng hợp, "
