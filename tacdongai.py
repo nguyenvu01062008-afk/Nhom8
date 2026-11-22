@@ -146,14 +146,30 @@ def _make_demo_data(n: int = 5000) -> tuple[pd.DataFrame, pd.DataFrame]:
     return df.iloc[:cut].reset_index(drop=True), df.iloc[cut:].reset_index(drop=True)
 
 
-@st.cache_data(show_spinner="Đang tải dữ liệu...")
-def load_data() -> tuple[pd.DataFrame, pd.DataFrame, str, str]:
-    """Trả về (train, test, loại_dữ_liệu, tên_file). loại: 'real' hoặc 'demo'."""
+def _find_data_files() -> tuple[Path, Path] | None:
+    """Tìm cặp file train/test trong repo. Không cache để file mới thêm vào được nhận ngay."""
     for folder in DATA_DIRS:
         for tr_name, te_name in FILE_CANDIDATES:
             tr, te = folder / tr_name, folder / te_name
             if tr.exists() and te.exists():
-                return _read_table(tr), _read_table(te), "real", f"{tr_name} / {te_name}"
+                return tr, te
+    return None
+
+
+@st.cache_data(show_spinner="Đang tải dữ liệu...")
+def _read_pair(tr_path: str, te_path: str, mtime: float) -> tuple[pd.DataFrame, pd.DataFrame]:
+    # mtime nằm trong khóa cache: file đổi nội dung thì tự đọc lại
+    return _read_table(Path(tr_path)), _read_table(Path(te_path))
+
+
+def load_data() -> tuple[pd.DataFrame, pd.DataFrame, str, str]:
+    """Trả về (train, test, loại_dữ_liệu, tên_file). loại: 'real' hoặc 'demo'.
+    Chỉ việc đọc file thật mới được cache; dữ liệu giả lập thì không."""
+    found = _find_data_files()
+    if found:
+        tr, te = found
+        train, test = _read_pair(str(tr), str(te), max(tr.stat().st_mtime, te.stat().st_mtime))
+        return train, test, "real", f"{tr.name} / {te.name}"
     train, test = _make_demo_data()
     return train, test, "demo", "dữ liệu giả lập"
 
@@ -373,6 +389,13 @@ elif menu.startswith("📖"):
             f"Web đang chạy bằng **dữ liệu giả lập** ({len(train_df):,} train / {len(test_df):,} test) vì chưa tìm thấy "
             "file dữ liệu thật. Hãy đặt `train.csv` và `test.csv` vào repo GitHub (thư mục gốc hoặc `data/`)."
         )
+        with st.expander("🔍 Web đang thấy những file nào?"):
+            for folder in DATA_DIRS:
+                if folder.exists():
+                    names = sorted(p.name for p in folder.iterdir())
+                    st.write(f"`{folder.name or folder}` → {names}")
+                else:
+                    st.write(f"`{folder.name}` → (không có thư mục này)")
     st.info(DATASET_ORIGIN_NOTE)
     st.warning(
         "Cần lưu ý: nếu tác giả không công bố phương pháp thu thập, hoặc bộ dữ liệu có dấu hiệu được tổng hợp, "
