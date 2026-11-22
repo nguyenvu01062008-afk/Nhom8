@@ -1,6 +1,10 @@
 """
 AI Academic Impact Predictor — Nhóm 8
 Phân tích & dự đoán tác động của GenAI đến GPA sinh viên bằng Decision Tree Regressor.
+Cấu hình mô hình khớp với notebook Colab của nhóm:
+  X = Pre_Semester_GPA, Traditional_Study_Hours, Weekly_GenAI_Hours
+  y = Post_Semester_GPA
+  DecisionTreeRegressor(max_depth=8, random_state=42)
 
 Chạy:  streamlit run app.py
 """
@@ -39,27 +43,11 @@ DATASET_ORIGIN_NOTE = (
     "cần được đối chiếu với phần mô tả của tác giả trên Kaggle."
 )
 
-NUMERIC_FEATURES = [
-    "Pre_Semester_GPA",
-    "Weekly_GenAI_Hours",
-    "Tool_Diversity",
-    "Traditional_Study_Hours",
-    "Year_of_Study_Encoded",
-    "Prompt_Engineering_Skill_Encoded",
-    "Paid_Subscription_Encoded",
-]
-MAJOR_COLS = ["Major_Arts", "Major_Business", "Major_Humanities", "Major_Medical", "Major_STEM"]
-USECASE_COLS = [
-    "UseCase_Copywriting/Drafting",
-    "UseCase_Debugging/Troubleshooting",
-    "UseCase_Direct_Answer_Generation",
-    "UseCase_Ideation",
-    "UseCase_Summarizing_Reading",
-]
-FEATURE_COLS = NUMERIC_FEATURES + MAJOR_COLS + USECASE_COLS
+# 3 biến đầu vào đúng thứ tự trong notebook Colab
+FEATURE_COLS = ["Pre_Semester_GPA", "Traditional_Study_Hours", "Weekly_GenAI_Hours"]
 TARGET_COL = "Post_Semester_GPA"
+DEFAULT_DEPTH = 8  # khớp notebook Colab
 
-# Bảng màu giao diện sáng
 # Màu trung tính (tông vừa) để đọc được trên CẢ nền sáng lẫn nền tối.
 # Màu nền và màu chữ chính KHÔNG đặt cứng: để Streamlit tự theo theme sáng/tối.
 C_PRIMARY = "#0ea5e9"
@@ -137,33 +125,24 @@ def _read_table(path: Path) -> pd.DataFrame:
     return pd.read_csv(path) if path.suffix.lower() == ".csv" else pd.read_excel(path)
 
 
+def _read_upload(f) -> pd.DataFrame:
+    return pd.read_csv(f) if f.name.lower().endswith(".csv") else pd.read_excel(f)
+
+
 def _make_demo_data(n: int = 5000) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Dữ liệu GIẢ LẬP chỉ để chạy thử giao diện khi chưa có file thật."""
     rng = np.random.default_rng(42)
     df = pd.DataFrame(
         {
             "Pre_Semester_GPA": np.round(rng.uniform(1.8, 4.0, n), 3),
-            "Weekly_GenAI_Hours": np.round(rng.uniform(0, 35, n), 2),
-            "Tool_Diversity": rng.integers(1, 6, n),
-            "Traditional_Study_Hours": np.round(rng.uniform(2, 25, n), 2),
-            "Year_of_Study_Encoded": rng.integers(1, 6, n),
-            "Prompt_Engineering_Skill_Encoded": rng.integers(1, 4, n),
-            "Paid_Subscription_Encoded": rng.integers(0, 2, n),
+            "Traditional_Study_Hours": np.round(rng.uniform(1, 20, n), 2),
+            "Weekly_GenAI_Hours": np.round(rng.uniform(0, 20, n), 2),
         }
     )
-    majors = rng.choice(MAJOR_COLS, n)
-    for m in MAJOR_COLS:
-        df[m] = (majors == m).astype(int)
-    usecases = rng.choice(USECASE_COLS, n)
-    for u in USECASE_COLS:
-        df[u] = (usecases == u).astype(int)
     delta = (
         0.015 * df["Traditional_Study_Hours"]
-        + 0.08 * df["Prompt_Engineering_Skill_Encoded"]
-        - 0.012 * np.maximum(0, df["Weekly_GenAI_Hours"] - 15)
-        - 0.15 * df["UseCase_Direct_Answer_Generation"]
-        + 0.06 * df["UseCase_Ideation"]
-        - 0.07
+        - 0.004 * df["Weekly_GenAI_Hours"]
+        + 0.03
         + rng.normal(0, 0.12, n)
     )
     df[TARGET_COL] = np.clip(np.round(df["Pre_Semester_GPA"] + delta, 3), 0.0, 4.0)
@@ -187,7 +166,6 @@ def load_data() -> tuple[pd.DataFrame, pd.DataFrame, str, str]:
 # 2. HUẤN LUYỆN & ĐÁNH GIÁ
 # ======================================================================
 def _evaluate(name: str, y_true: pd.Series, y_pred: np.ndarray, pre: pd.Series) -> dict:
-    y_pred = np.clip(y_pred, 0.0, 4.0)
     return {
         "Mô hình": name,
         "R² (GPA sau)": r2_score(y_true, y_pred),
@@ -203,10 +181,9 @@ def train_models(train_df: pd.DataFrame, test_df: pd.DataFrame, max_depth: int):
     X_te, y_te = test_df[FEATURE_COLS], test_df[TARGET_COL]
     pre_te = test_df["Pre_Semester_GPA"]
 
-    dt = DecisionTreeRegressor(max_depth=max_depth, min_samples_leaf=10, random_state=42).fit(X_tr, y_tr)
-    rf = RandomForestRegressor(
-        n_estimators=150, max_depth=max_depth, min_samples_leaf=10, n_jobs=-1, random_state=42
-    ).fit(X_tr, y_tr)
+    # Giống notebook Colab: DecisionTreeRegressor(max_depth=..., random_state=42), không đặt min_samples_leaf
+    dt = DecisionTreeRegressor(max_depth=max_depth, random_state=42).fit(X_tr, y_tr)
+    rf = RandomForestRegressor(n_estimators=150, max_depth=max_depth, n_jobs=-1, random_state=42).fit(X_tr, y_tr)
     lin = LinearRegression().fit(X_tr, y_tr)
 
     preds = {
@@ -219,7 +196,7 @@ def train_models(train_df: pd.DataFrame, test_df: pd.DataFrame, max_depth: int):
 
     depth_rows = []
     for d in range(2, 16):
-        m = DecisionTreeRegressor(max_depth=d, min_samples_leaf=10, random_state=42).fit(X_tr, y_tr)
+        m = DecisionTreeRegressor(max_depth=d, random_state=42).fit(X_tr, y_tr)
         depth_rows.append(
             {
                 "max_depth": d,
@@ -233,19 +210,13 @@ def train_models(train_df: pd.DataFrame, test_df: pd.DataFrame, max_depth: int):
         .sort_values("Độ quan trọng (%)", ascending=False)
         .reset_index(drop=True)
     )
-    return dt, rf, results, pd.DataFrame(depth_rows), fi_df
+    tree_info = {"n_leaves": int(dt.get_n_leaves()), "r2_train": float(dt.score(X_tr, y_tr))}
+    return dt, rf, results, pd.DataFrame(depth_rows), fi_df, tree_info
 
 
 # ======================================================================
-# 3. NẠP DỮ LIỆU + SIDEBAR
+# 3. SIDEBAR + NẠP DỮ LIỆU
 # ======================================================================
-train_df, test_df, data_kind, data_file = load_data()
-
-missing = [c for c in FEATURE_COLS + [TARGET_COL] if c not in train_df.columns or c not in test_df.columns]
-if missing:
-    st.error(f"File dữ liệu thiếu các cột bắt buộc: {missing}")
-    st.stop()
-
 with st.sidebar:
     st.title("🎓 Bảng điều khiển")
     menu = st.radio(
@@ -259,16 +230,33 @@ with st.sidebar:
         ],
     )
     st.markdown("---")
-    max_depth = st.slider("Độ sâu tối đa của cây (max_depth)", 3, 15, 10)
-    st.caption("Mặc định 10: giá trị cho RMSE thấp nhất khi cross-validation 5-fold trên tập train (không dùng tập test để chọn). Cây sâu hơn dễ overfit — xem biểu đồ ở mục *Đánh giá mô hình*.")
+    max_depth = st.slider("Độ sâu tối đa của cây (max_depth)", 3, 15, DEFAULT_DEPTH)
+    st.caption(
+        f"Mặc định {DEFAULT_DEPTH}: đúng cấu hình trong notebook Colab của nhóm. "
+        "Cây sâu hơn dễ overfit — xem biểu đồ ở mục *Đánh giá mô hình*."
+    )
+    with st.expander("📂 Tải file dữ liệu lên (nếu repo chưa có)"):
+        up_train = st.file_uploader("File train (.csv / .xlsx)", type=["csv", "xlsx"], key="up_train")
+        up_test = st.file_uploader("File test (.csv / .xlsx)", type=["csv", "xlsx"], key="up_test")
+        st.caption("Cần đủ 3 cột đầu vào và cột Post_Semester_GPA. File tải lên chỉ dùng trong phiên này.")
 
-dt_model, rf_model, results_df, depth_df, fi_df = train_models(train_df, test_df, max_depth)
+if up_train is not None and up_test is not None:
+    train_df, test_df = _read_upload(up_train), _read_upload(up_test)
+    data_kind, data_file = "real", "file tải lên"
+else:
+    train_df, test_df, data_kind, data_file = load_data()
 
-# Banner chỉ hiện chữ "demo" khi thật sự không có file dữ liệu, để tránh hiểu nhầm.
+missing = [c for c in FEATURE_COLS + [TARGET_COL] if c not in train_df.columns or c not in test_df.columns]
+if missing:
+    st.error(f"File dữ liệu thiếu các cột bắt buộc: {missing}")
+    st.stop()
+
+dt_model, rf_model, results_df, depth_df, fi_df, tree_info = train_models(train_df, test_df, max_depth)
+
 banner_src = (
     f"Dữ liệu: <b>{DATASET_NAME}</b> — {len(train_df):,} mẫu train / {len(test_df):,} mẫu test"
     if data_kind == "real"
-    else "⚠️ <b>CHẾ ĐỘ DEMO — dữ liệu giả lập, chưa có file dữ liệu thật trong thư mục data/</b>"
+    else "⚠️ <b>CHẾ ĐỘ DEMO — dữ liệu giả lập, chưa có file dữ liệu thật</b>"
 )
 st.markdown(
     f"""
@@ -292,54 +280,13 @@ if menu.startswith("🔮"):
 
     with col_in:
         st.subheader("📝 Thông tin học tập & thói quen dùng AI")
-        c1, c2 = st.columns(2)
-        with c1:
-            pre_gpa = st.slider("GPA trước học kỳ (thang 4.0)", 0.0, 4.0, 3.20, 0.05)
-            ai_hours = st.slider("Giờ dùng GenAI / tuần", 0.0, 40.0, 8.5, 0.5)
-            trad_hours = st.slider("Giờ tự học truyền thống / tuần", 0.0, 36.0, 11.0, 0.5)
-        with c2:
-            tool_div = st.slider("Số loại công cụ AI đang dùng (1–5)", 1, 5, 3)
-            year_map = {
-                "Năm nhất": 1, "Năm hai": 2, "Năm ba": 3, "Năm cuối": 4, "Sau đại học": 5,
-            }
-            year_label = st.selectbox("Năm học", list(year_map), index=2)
-            skill_map = {"Mới bắt đầu": 1, "Trung cấp": 2, "Nâng cao": 3}
-            skill_label = st.selectbox("Kỹ năng viết prompt", list(skill_map), index=1)
+        pre_gpa = st.slider("GPA trước học kỳ (thang 4.0)", 0.0, 4.0, 3.20, 0.05)
+        trad_hours = st.slider("Giờ tự học truyền thống / tuần", 0.0, 36.0, 11.0, 0.5)
+        ai_hours = st.slider("Giờ dùng GenAI / tuần", 0.0, 40.0, 8.5, 0.5)
 
-        c3, c4 = st.columns(2)
-        with c3:
-            major_map = {
-                "Kỹ thuật & Công nghệ (STEM)": "Major_STEM",
-                "Kinh doanh (Business)": "Major_Business",
-                "KHXH & Nhân văn (Humanities)": "Major_Humanities",
-                "Y khoa (Medical)": "Major_Medical",
-                "Nghệ thuật (Arts)": "Major_Arts",
-            }
-            major_label = st.selectbox("Khối ngành", list(major_map))
-        with c4:
-            usecase_map = {
-                "Lên ý tưởng (Ideation)": "UseCase_Ideation",
-                "Lập trình / Gỡ lỗi (Debugging)": "UseCase_Debugging/Troubleshooting",
-                "Tóm tắt / Đọc tài liệu (Summarizing)": "UseCase_Summarizing_Reading",
-                "Soạn thảo văn bản (Drafting)": "UseCase_Copywriting/Drafting",
-                "Lấy đáp án trực tiếp (Direct Answer)": "UseCase_Direct_Answer_Generation",
-            }
-            usecase_label = st.selectbox("Mục đích dùng AI chính", list(usecase_map))
-        paid_sub = st.toggle("Dùng gói AI trả phí", value=False)
-
-    row = {c: 0 for c in FEATURE_COLS}
-    row.update(
-        Pre_Semester_GPA=pre_gpa,
-        Weekly_GenAI_Hours=ai_hours,
-        Tool_Diversity=tool_div,
-        Traditional_Study_Hours=trad_hours,
-        Year_of_Study_Encoded=year_map[year_label],
-        Prompt_Engineering_Skill_Encoded=skill_map[skill_label],
-        Paid_Subscription_Encoded=int(paid_sub),
-    )
-    row[major_map[major_label]] = 1
-    row[usecase_map[usecase_label]] = 1
-    input_df = pd.DataFrame([row])[FEATURE_COLS]
+    input_df = pd.DataFrame(
+        [{"Pre_Semester_GPA": pre_gpa, "Traditional_Study_Hours": trad_hours, "Weekly_GenAI_Hours": ai_hours}]
+    )[FEATURE_COLS]
 
     pred = float(np.clip(dt_model.predict(input_df)[0], 0.0, 4.0))
     pred_rf = float(np.clip(rf_model.predict(input_df)[0], 0.0, 4.0))
@@ -395,29 +342,30 @@ if menu.startswith("🔮"):
             st.warning("Giá trị nằm ngoài khoảng dữ liệu huấn luyện, dự đoán không đáng tin: " + ", ".join(out_of_range))
 
         with st.expander("Gợi ý theo quy tắc (không phải đầu ra của mô hình)"):
-            if usecase_map[usecase_label] == "UseCase_Direct_Answer_Generation":
-                st.write("- Dùng AI chủ yếu để lấy đáp án có thể làm giảm việc rèn tư duy; nhiều nghiên cứu khuyến nghị dùng AI để giải thích và phản biện.")
             if ai_hours > 20 and trad_hours < 8:
                 st.write("- Giờ dùng AI cao trong khi giờ tự học thấp: nên cân đối lại.")
-            if not any([usecase_map[usecase_label] == "UseCase_Direct_Answer_Generation", ai_hours > 20 and trad_hours < 8]):
+            else:
                 st.write("- Chưa có cảnh báo theo quy tắc nào.")
 
     st.markdown("---")
     st.markdown("#### 🔬 Phân tích 'nếu...': GPA dự đoán thay đổi thế nào khi chỉ đổi số giờ dùng AI?")
     grid = np.linspace(0, float(train_df["Weekly_GenAI_Hours"].max()), 60)
-    sweep = pd.DataFrame(np.repeat(input_df.to_numpy(dtype=float), len(grid), axis=0), columns=FEATURE_COLS)
+    sweep = pd.concat([input_df] * len(grid), ignore_index=True)
     sweep["Weekly_GenAI_Hours"] = grid
     curve = pd.DataFrame(
         {
             "Giờ dùng AI / tuần": grid,
-            "Decision Tree": np.clip(dt_model.predict(sweep), 0, 4) - pre_gpa,
-            "Random Forest": np.clip(rf_model.predict(sweep), 0, 4) - pre_gpa,
+            "Decision Tree": dt_model.predict(sweep) - pre_gpa,
+            "Random Forest": rf_model.predict(sweep) - pre_gpa,
         }
     ).melt("Giờ dùng AI / tuần", var_name="Mô hình", value_name="Thay đổi GPA dự đoán")
     fig_c = px.line(curve, x="Giờ dùng AI / tuần", y="Thay đổi GPA dự đoán", color="Mô hình")
     fig_c.add_vline(x=ai_hours, line_dash="dash", line_color=C_WARN)
     st.plotly_chart(style_fig(fig_c, 330), use_container_width=True)
-    st.caption("Cây quyết định cho đường bậc thang; Random Forest mượt hơn. Đây là mối liên hệ mô hình học được, chưa phải bằng chứng nhân quả.")
+    st.caption(
+        "Cây quyết định cho đường bậc thang; Random Forest mượt hơn. Mức quan trọng của giờ dùng AI trong mô hình rất thấp "
+        "nên đường này gần như nằm ngang. Đây là mối liên hệ mô hình học được, chưa phải bằng chứng nhân quả."
+    )
 
 # ======================================================================
 # TAB 2: VỀ DỮ LIỆU & GPA
@@ -430,14 +378,14 @@ elif menu.startswith("📖"):
     n_total = len(train_df) + len(test_df)
     if data_kind == "real":
         st.write(
-            f"Bộ dữ liệu **{DATASET_NAME}**{link}, được nhóm tải về từ Kaggle ({n_total:,} sinh viên), "
-            f"tiền xử lý (Ordinal Encoding cho năm học và kỹ năng prompt, One-Hot Encoding cho ngành học và mục đích dùng AI) "
+            f"Bộ dữ liệu **{DATASET_NAME}**{link}, được nhóm tải về từ Kaggle ({n_total:,} sinh viên) "
             f"rồi chia {len(train_df) / n_total:.0%} train ({len(train_df):,}) / {len(test_df) / n_total:.0%} test ({len(test_df):,})."
         )
     else:
         st.error(
             f"Web đang chạy bằng **dữ liệu giả lập** ({len(train_df):,} train / {len(test_df):,} test) vì chưa tìm thấy "
-            "file dữ liệu thật. Hãy đặt `train.csv` và `test.csv` vào thư mục `data/` của repo GitHub."
+            "file dữ liệu thật. Hãy đặt `train.csv` và `test.csv` vào thư mục `data/` của repo GitHub, "
+            "hoặc tải file lên ở thanh bên (mục *Tải file dữ liệu lên*)."
         )
     st.info(DATASET_ORIGIN_NOTE)
     st.warning(
@@ -455,35 +403,28 @@ elif menu.startswith("📖"):
     )
     st.caption("Phần mô tả trên suy ra từ tên cột và cách nhóm xử lý; hãy đối chiếu với data card của Kaggle trước khi nộp.")
 
-    st.markdown("#### 3. Dữ liệu đầu vào (17 đặc trưng sau mã hóa)")
+    st.markdown("#### 3. Biến đầu vào và biến mục tiêu của mô hình")
     dictionary = pd.DataFrame(
         [
-            ("Pre_Semester_GPA", "GPA trước học kỳ", "Số thực, thang 0–4"),
-            ("Weekly_GenAI_Hours", "Giờ dùng GenAI mỗi tuần", "Số thực"),
-            ("Tool_Diversity", "Số loại công cụ AI sử dụng", "Số nguyên (1–5)"),
-            ("Traditional_Study_Hours", "Giờ tự học truyền thống mỗi tuần", "Số thực"),
-            ("Year_of_Study_Encoded", "Năm học", "Ordinal: 1 = năm nhất … 5 = sau đại học"),
-            ("Prompt_Engineering_Skill_Encoded", "Kỹ năng viết prompt", "Ordinal: 1 = mới, 2 = trung cấp, 3 = nâng cao"),
-            ("Paid_Subscription_Encoded", "Có dùng gói AI trả phí", "Nhị phân 0/1"),
-            ("Major_Arts / Business / Humanities / Medical / STEM", "Khối ngành", "One-hot (5 cột 0/1)"),
-            ("UseCase_Copywriting/Drafting, Debugging/Troubleshooting, Direct_Answer_Generation, Ideation, Summarizing_Reading",
-             "Mục đích dùng AI chính", "One-hot (5 cột 0/1)"),
-            ("Post_Semester_GPA", "GPA sau học kỳ (biến mục tiêu)", "Số thực, thang 0–4"),
+            ("Pre_Semester_GPA", "GPA trước học kỳ", "X — số thực, thang 0–4"),
+            ("Traditional_Study_Hours", "Giờ tự học truyền thống mỗi tuần", "X — số thực"),
+            ("Weekly_GenAI_Hours", "Giờ dùng GenAI mỗi tuần", "X — số thực"),
+            ("Post_Semester_GPA", "GPA sau học kỳ", "y (biến mục tiêu) — số thực, thang 0–4"),
         ],
-        columns=["Cột", "Ý nghĩa", "Kiểu / mã hóa"],
+        columns=["Cột", "Ý nghĩa", "Vai trò / kiểu"],
     )
     st.dataframe(dictionary, use_container_width=True, hide_index=True)
     st.caption(
-        "Bộ dữ liệu gốc còn các cột khác (ví dụ mức phụ thuộc AI, lo âu khi thi, điểm giữ kỹ năng, nguy cơ kiệt sức). "
-        "Nhóm không đưa chúng vào mô hình vì nhiều khả năng chúng là *kết quả* của việc dùng AI chứ không phải đầu vào, "
-        "đưa vào sẽ gây rò rỉ thông tin."
+        "Bộ dữ liệu gốc có thêm nhiều cột khác (ngành học, mục đích dùng AI, năm học...). "
+        "Mô hình của nhóm chỉ dùng 3 biến đầu vào ở trên."
     )
 
     st.markdown("#### 4. Hạn chế cần nêu khi thuyết trình")
     st.write(
         "- Dữ liệu quan sát, không phải thí nghiệm có đối chứng: không thể kết luận AI *gây ra* thay đổi GPA.\n"
-        "- GPA trước học kỳ gần như quyết định GPA sau học kỳ; phần đóng góp của AI là phần nhỏ còn lại "
-        "(xem mục *Đánh giá mô hình*, cột R² của mức thay đổi GPA).\n"
+        "- GPA trước học kỳ gần như quyết định GPA sau học kỳ; phần đóng góp của giờ dùng AI rất nhỏ "
+        "(xem mục *Đánh giá mô hình*, biểu đồ mức độ quan trọng).\n"
+        "- Mô hình chỉ có 3 biến đầu vào nên bỏ qua nhiều yếu tố khác ảnh hưởng đến GPA.\n"
         "- Khả năng khái quát hóa sang sinh viên Việt Nam hoặc trường khác chưa được kiểm chứng."
     )
 
@@ -494,12 +435,16 @@ elif menu.startswith("📊"):
     st.subheader(f"📈 Đánh giá mô hình trên tập test ({len(test_df):,} mẫu)")
 
     k1, k2, k3, k4 = st.columns(4)
-    k1.markdown(kpi("R² (GPA sau)", f"{dt_row['R² (GPA sau)']*100:.1f}%", "Decision Tree"), unsafe_allow_html=True)
-    k2.markdown(kpi("RMSE", f"{dt_row['RMSE']:.3f}", "Sai số bình phương TB (điểm GPA)", C_PRIMARY), unsafe_allow_html=True)
-    k3.markdown(kpi("MAE", f"{dt_row['MAE']:.3f}", "Sai số tuyệt đối TB (điểm GPA)", C_PURPLE), unsafe_allow_html=True)
+    k1.markdown(kpi("R² (GPA sau)", f"{dt_row['R² (GPA sau)']:.4f}", "Decision Tree"), unsafe_allow_html=True)
+    k2.markdown(kpi("RMSE", f"{dt_row['RMSE']:.4f}", "Sai số bình phương TB (điểm GPA)", C_PRIMARY), unsafe_allow_html=True)
+    k3.markdown(kpi("MAE", f"{dt_row['MAE']:.4f}", "Sai số tuyệt đối TB (điểm GPA)", C_PURPLE), unsafe_allow_html=True)
     k4.markdown(
         kpi("R² (mức thay đổi GPA)", f"{dt_row['R² (mức thay đổi GPA)']*100:.1f}%", "Phần biến thiên của (Post − Pre) mà mô hình giải thích", C_GOOD),
         unsafe_allow_html=True,
+    )
+    st.caption(
+        f"Decision Tree (max_depth={max_depth}): {tree_info['n_leaves']} lá, R² train = {tree_info['r2_train']:.4f}. "
+        "Với max_depth=8 và dữ liệu Colab, các số này phải trùng với notebook."
     )
     st.info(
         f"Chỉ riêng việc chép lại GPA trước học kỳ (baseline) đã cho R² = {base_row['R² (GPA sau)']*100:.1f}%. "
@@ -514,26 +459,25 @@ elif menu.startswith("📊"):
     else:
         st.info(
             f"Trên tập test, **{best['Mô hình']}** có RMSE thấp nhất ({best['RMSE']:.3f}) so với Decision Tree "
-            f"({dt_row['RMSE']:.3f}). Điều này cho thấy quan hệ trong dữ liệu gần tuyến tính. "
-            "Decision Tree vẫn là mô hình chính của đề tài vì dễ diễn giải (đường đi quyết định, độ quan trọng đặc trưng)."
+            f"({dt_row['RMSE']:.3f}). Decision Tree vẫn là mô hình chính của đề tài vì dễ diễn giải "
+            "(đường đi quyết định, độ quan trọng đặc trưng)."
         )
 
     st.markdown("#### So sánh mô hình")
     st.dataframe(
-        results_df.style.format({c: "{:.3f}" for c in results_df.columns if c != "Mô hình"}),
+        results_df.style.format({c: "{:.4f}" for c in results_df.columns if c != "Mô hình"}),
         use_container_width=True, hide_index=True,
     )
 
     left, right = st.columns(2, gap="large")
     with left:
-        st.markdown("#### 🏆 Top 10 đặc trưng quan trọng (Decision Tree)")
-        top = fi_df.head(10).sort_values("Độ quan trọng (%)")
+        st.markdown("#### 🏆 Mức độ quan trọng của 3 thuộc tính (Decision Tree)")
+        top = fi_df.sort_values("Độ quan trọng (%)")
         fig_fi = px.bar(
             top, x="Độ quan trọng (%)", y="Đặc trưng", orientation="h",
-            text=top["Độ quan trọng (%)"].map(lambda v: f"{v:.1f}%"),
-            color="Độ quan trọng (%)", color_continuous_scale="Viridis",
+            text=top["Độ quan trọng (%)"].map(lambda v: f"{v:.2f}%"),
         )
-        st.plotly_chart(style_fig(fig_fi, 420), use_container_width=True)
+        st.plotly_chart(style_fig(fig_fi, 380), use_container_width=True)
     with right:
         st.markdown("#### 🎯 GPA thực tế vs dự đoán (300 mẫu test)")
         sample = test_df.sample(min(300, len(test_df)), random_state=42).copy()
@@ -544,7 +488,7 @@ elif menu.startswith("📊"):
             color_continuous_scale="Plasma",
         )
         fig_sc.add_shape(type="line", x0=0, y0=0, x1=4, y1=4, line=dict(color="#16a34a", dash="dash"))
-        st.plotly_chart(style_fig(fig_sc, 420), use_container_width=True)
+        st.plotly_chart(style_fig(fig_sc, 380), use_container_width=True)
 
     st.markdown("#### Chọn độ sâu cây: Train vs Test RMSE")
     fig_d = px.line(
@@ -583,16 +527,6 @@ elif menu.startswith("🗂️"):
                        labels={"Nhom": "Giờ AI/tuần", "mean": "Thay đổi GPA TB"})
         st.plotly_chart(style_fig(fig_g, 360), use_container_width=True)
     with b:
-        st.markdown("#### Thay đổi GPA trung bình theo mục đích dùng AI")
-        uc = full[USECASE_COLS].idxmax(axis=1).str.replace("UseCase_", "", regex=False)
-        grp2 = full.assign(UseCase=uc).groupby("UseCase")["GPA_Change"].mean().reset_index().sort_values("GPA_Change")
-        fig_u = px.bar(grp2, x="GPA_Change", y="UseCase", orientation="h",
-                       labels={"GPA_Change": "Thay đổi GPA TB", "UseCase": ""})
-        st.plotly_chart(style_fig(fig_u, 360), use_container_width=True)
-    st.caption("Chênh lệch trung bình giữa các nhóm chưa kiểm soát các yếu tố khác (GPA nền, giờ tự học...), không nên đọc là nhân quả.")
-
-    a2, b2 = st.columns(2, gap="large")
-    with a2:
         st.markdown("#### Thay đổi GPA trung bình theo giờ tự học truyền thống / tuần")
         tb_bins = [-0.01, 5, 10, 15, 20, 1000]
         tb_labels = ["0–5", "5–10", "10–15", "15–20", ">20"]
@@ -602,30 +536,34 @@ elif menu.startswith("🗂️"):
         )
         fig_t = px.bar(grp3, x="Nhom", y="mean", text=grp3["size"].map(lambda n: f"n={n:,}"),
                        labels={"Nhom": "Giờ tự học/tuần", "mean": "Thay đổi GPA TB"})
-        st.plotly_chart(style_fig(fig_t, 340), use_container_width=True)
+        st.plotly_chart(style_fig(fig_t, 360), use_container_width=True)
+    st.caption("Chênh lệch trung bình giữa các nhóm chưa kiểm soát các yếu tố khác (GPA nền...), không nên đọc là nhân quả.")
+
+    a2, b2 = st.columns(2, gap="large")
+    with a2:
+        st.markdown("#### Phân bố mức thay đổi GPA (Post − Pre)")
+        fig_h = px.histogram(full, x="GPA_Change", nbins=60, labels={"GPA_Change": "Thay đổi GPA"})
+        st.plotly_chart(style_fig(fig_h, 340), use_container_width=True)
     with b2:
         st.markdown("#### Lưu ý khi đọc dữ liệu")
         ceiling = (full[TARGET_COL] >= 4.0).mean() * 100
         st.warning(
             f"- **Hiệu ứng trần:** {ceiling:.1f}% sinh viên có GPA sau học kỳ chạm mức tối đa 4.0, "
             "nên sinh viên GPA cao khó tăng thêm và mô hình có xu hướng dự đoán thấp cho nhóm này.\n"
-            f"- GPA trung bình tăng {full['GPA_Change'].mean():+.2f} ở toàn mẫu, kể cả nhóm dùng AI ít. "
-            "Vì không có nhóm đối chứng, không thể tách phần tăng do AI khỏi các yếu tố khác."
+            f"- GPA trung bình thay đổi {full['GPA_Change'].mean():+.2f} ở toàn mẫu, kể cả nhóm dùng AI ít. "
+            "Vì không có nhóm đối chứng, không thể tách phần thay đổi do AI khỏi các yếu tố khác."
         )
 
-    st.markdown("#### Ma trận tương quan (biến số)")
-    corr = full[NUMERIC_FEATURES + [TARGET_COL, "GPA_Change"]].corr()
+    st.markdown("#### Ma trận tương quan")
+    corr = full[FEATURE_COLS + [TARGET_COL, "GPA_Change"]].corr()
     st.plotly_chart(
-        style_fig(px.imshow(corr, text_auto=".2f", color_continuous_scale="RdBu_r", zmin=-1, zmax=1), 520),
+        style_fig(px.imshow(corr, text_auto=".2f", color_continuous_scale="RdBu_r", zmin=-1, zmax=1), 480),
         use_container_width=True,
     )
 
     st.markdown("#### Mẫu dữ liệu & thống kê mô tả")
-    st.dataframe(test_df.head(20), use_container_width=True)
-    st.dataframe(
-        full[["Pre_Semester_GPA", "Weekly_GenAI_Hours", "Tool_Diversity", "Traditional_Study_Hours", TARGET_COL]].describe().T,
-        use_container_width=True,
-    )
+    st.dataframe(test_df[FEATURE_COLS + [TARGET_COL]].head(20), use_container_width=True)
+    st.dataframe(full[FEATURE_COLS + [TARGET_COL]].describe().T, use_container_width=True)
 
 # ======================================================================
 # TAB 5: BỐI CẢNH & TÀI LIỆU
