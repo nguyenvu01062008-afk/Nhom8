@@ -26,7 +26,7 @@ from sklearn.tree import DecisionTreeRegressor
 # 0. CẤU HÌNH CHUNG
 # ======================================================================
 BASE_DIR = Path(__file__).parent
-DATA_DIRS = [BASE_DIR / "data", BASE_DIR]
+DATA_DIRS = [BASE_DIR / "data", BASE_DIR, BASE_DIR / ".devcontainer"]
 # Thứ tự ưu tiên tên file (cặp train, test). Hỗ trợ .csv và .xlsx.
 FILE_CANDIDATES = [
     ("train.csv", "test.csv"),
@@ -123,10 +123,6 @@ def style_fig(fig: go.Figure, height: int = 400) -> go.Figure:
 # ======================================================================
 def _read_table(path: Path) -> pd.DataFrame:
     return pd.read_csv(path) if path.suffix.lower() == ".csv" else pd.read_excel(path)
-
-
-def _read_upload(f) -> pd.DataFrame:
-    return pd.read_csv(f) if f.name.lower().endswith(".csv") else pd.read_excel(f)
 
 
 def _make_demo_data(n: int = 5000) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -235,16 +231,7 @@ with st.sidebar:
         f"Mặc định {DEFAULT_DEPTH}: đúng cấu hình trong notebook Colab của nhóm. "
         "Cây sâu hơn dễ overfit — xem biểu đồ ở mục *Đánh giá mô hình*."
     )
-    with st.expander("📂 Tải file dữ liệu lên (nếu repo chưa có)"):
-        up_train = st.file_uploader("File train (.csv / .xlsx)", type=["csv", "xlsx"], key="up_train")
-        up_test = st.file_uploader("File test (.csv / .xlsx)", type=["csv", "xlsx"], key="up_test")
-        st.caption("Cần đủ 3 cột đầu vào và cột Post_Semester_GPA. File tải lên chỉ dùng trong phiên này.")
-
-if up_train is not None and up_test is not None:
-    train_df, test_df = _read_upload(up_train), _read_upload(up_test)
-    data_kind, data_file = "real", "file tải lên"
-else:
-    train_df, test_df, data_kind, data_file = load_data()
+train_df, test_df, data_kind, data_file = load_data()
 
 missing = [c for c in FEATURE_COLS + [TARGET_COL] if c not in train_df.columns or c not in test_df.columns]
 if missing:
@@ -384,8 +371,7 @@ elif menu.startswith("📖"):
     else:
         st.error(
             f"Web đang chạy bằng **dữ liệu giả lập** ({len(train_df):,} train / {len(test_df):,} test) vì chưa tìm thấy "
-            "file dữ liệu thật. Hãy đặt `train.csv` và `test.csv` vào thư mục `data/` của repo GitHub, "
-            "hoặc tải file lên ở thanh bên (mục *Tải file dữ liệu lên*)."
+            "file dữ liệu thật. Hãy đặt `train.csv` và `test.csv` vào repo GitHub (thư mục gốc hoặc `data/`)."
         )
     st.info(DATASET_ORIGIN_NOTE)
     st.warning(
